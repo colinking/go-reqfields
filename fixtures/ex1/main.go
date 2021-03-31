@@ -8,7 +8,10 @@ type Hat struct {
 }
 
 func main() {
+	// This should error.
 	fmt.Printf("hat w/out style: %+v\n", Hat{})
+
+	// These should not error.
 	fmt.Printf("hat w/ snazzy style: %+v\n", Hat{
 		Style: "snazzy",
 	})

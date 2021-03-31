@@ -14,6 +14,35 @@ go get github.com/colinking/go-required
 reqfields <pkg | file>
 ```
 
+## VSCode
+
+To use this linter in VSCode, add the following to your settings to configure `golangci-lint` as your linter:
+
+```json
+"go.lintTool": "golangci-lint",
+"go.lintFlags": ["--fast"],
+```
+
+Next, download this repo and run `go generate ./...`. This will generate a Go plugin that `golangci-lint` will use.
+
+Then, add a `.golangci.yml` to your repo with the following configuration:
+
+```yaml
+linters-settings:
+  custom:
+    required:
+      # Make sure to update this path to point at your local copy of `colinking/go-required`:
+      path: ./cmd/plugin/main.so
+      description: Compile-time warnings for required fields.
+      original-url: github.com/colinking/go-required
+
+linters:
+  enable:
+    - required
+```
+
+Once you reload VSCode, you should now see lint warnings!
+
 ## Example
 
 ```sh
