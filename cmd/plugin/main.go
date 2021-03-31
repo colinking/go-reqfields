@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
-
-	reqfields "github.com/colinking/go-required"
+	"github.com/colinking/go-reqfields"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -12,8 +10,6 @@ type analyzerPlugin struct{}
 
 // This must be implemented
 func (*analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
-	fmt.Printf("Returning analyzer for go-required!\n")
-
 	return []*analysis.Analyzer{
 		reqfields.Analyzer,
 	}

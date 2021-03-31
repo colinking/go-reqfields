@@ -3,7 +3,7 @@ package main
 import "fmt"
 
 type Hat struct {
-	Style  string `required:"true"`
+	Style  string `require:"true"`
 	OnHead bool
 }
 

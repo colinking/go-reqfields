@@ -1,11 +1,11 @@
-# go-required
+# go-reqfields
 
-A Go linter that warns of missing required struct fields at compile-time.
+A Go linter that warns about missing required struct fields at compile time.
 
 ## Installation
 
 ```sh
-go get github.com/colinking/go-required
+go get github.com/colinking/go-reqfields
 ```
 
 ## Usage
@@ -14,34 +14,34 @@ go get github.com/colinking/go-required
 reqfields <pkg | file>
 ```
 
-## VSCode
+## IDE Integration
 
-To use this linter in VSCode, add the following to your settings to configure `golangci-lint` as your linter:
+You can configure your editor to provide lint warnings from `go-reqfields` via `golangci-lint`.
 
-```json
-"go.lintTool": "golangci-lint",
-"go.lintFlags": ["--fast"],
-```
-
-Next, download this repo and run `go generate ./...`. This will generate a Go plugin that `golangci-lint` will use.
+To do that, first download this repo and run `go generate ./...`. This will generate a Go plugin that `golangci-lint` will use.
 
 Then, add a `.golangci.yml` to your repo with the following configuration:
 
 ```yaml
 linters-settings:
   custom:
-    required:
-      # Make sure to update this path to point at your local copy of `colinking/go-required`:
+    reqfields:
+      # Make sure to update this path to point at your local copy of `colinking/go-reqfields`:
       path: ./cmd/plugin/main.so
       description: Compile-time warnings for required fields.
-      original-url: github.com/colinking/go-required
+      original-url: github.com/colinking/go-reqfields
 
 linters:
   enable:
-    - required
+    - reqfields
 ```
 
-Once you reload VSCode, you should now see lint warnings!
+Finally, configure your editor to use `golangci-lint`. For example in VSCode, you add the following to your settings file:
+
+```json
+"go.lintTool": "golangci-lint",
+"go.lintFlags": ["--fast"],
+```
 
 ## Example
 

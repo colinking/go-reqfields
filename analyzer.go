@@ -113,7 +113,7 @@ func collectStructs(pass *analysis.Pass) map[string]Struct {
 					// TODO: hide this behind a debug flag
 					pass.Reportf(field.Tag.Pos(), "unable to parse struct tag (%s): %+v", field.Tag.Value, err)
 					continue
-				} else if v, _ := tag.Get("required"); v != nil && v.Name == "true" {
+				} else if v, _ := tag.Get("require"); v != nil && v.Name == "true" {
 					s.RequiredFields = append(s.RequiredFields, field.Names[0].Name)
 				}
 			}

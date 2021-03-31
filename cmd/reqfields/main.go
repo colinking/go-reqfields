@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/colinking/go-required"
+	"github.com/colinking/go-reqfields"
 	"golang.org/x/tools/go/analysis/singlechecker"
 )
 

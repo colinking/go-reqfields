@@ -1,4 +1,4 @@
-module github.com/colinking/go-required
+module github.com/colinking/go-reqfields
 
 go 1.16
 
