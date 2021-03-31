@@ -3,6 +3,7 @@ package reqfields
 import (
 	"fmt"
 	"go/ast"
+	"reflect"
 	"strings"
 
 	"github.com/fatih/structtag"
@@ -30,7 +31,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			snid, ok := cl.Type.(*ast.Ident)
 			if !ok {
 				// TODO: hide this behind a debug flag
-				pass.Reportf(cl.Type.Pos(), "expected an identifier")
+				pass.Reportf(cl.Type.Pos(), "expected cl.Type to be an identifier, got %s", reflect.TypeOf(cl.Type))
 				return true
 			}
 
@@ -52,7 +53,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				id, ok := kv.Key.(*ast.Ident)
 				if !ok {
 					// TODO: hide this behind a debug flag
-					pass.Reportf(kv.Key.Pos(), "expected an identifier")
+					pass.Reportf(kv.Key.Pos(), "expected kv.Key to be an identifier, got %s", reflect.TypeOf(kv.Key))
 					continue
 				}
 
