@@ -17,6 +17,10 @@ var Analyzer = &analysis.Analyzer{
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
+	// Since we are doing two AST passes in the same run, we will only have
+	// access to information about the current package. To support reporting
+	// across other packages, we'll need to move this to a separate analyzer
+	// run and persist this data as object facts that we can query below.
 	structs := collectStructs(pass)
 	fmt.Printf("Found the following structs: %+v\n", structs)
 
@@ -28,7 +32,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			}
 
 			// Traverse the composite literal's type until we get to an identifier.
-			// TODO: map this type to a package name
 			var ident *ast.Ident
 			expr := cl.Type
 			for ident == nil {
@@ -45,16 +48,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					// Skip untyped maps/structs.
 					return true
 				default:
-					// TODO: hide this behind a debug flag
-					pass.Reportf(cl.Type.Pos(), "ERROR: unexpected expression type, got %s", reflect.TypeOf(expr))
+					pass.ReportRangef(cl.Type, "ERROR: unexpected expression type, got %s", reflect.TypeOf(expr))
 					return true
 				}
 			}
 
 			s, ok := structs[ident.Name]
 			if !ok {
-				// TODO: hide this behind a debug flag
-				pass.Reportf(cl.Type.Pos(), "ERROR: unknown struct: %s", ident.Name)
+				pass.ReportRangef(cl.Type, "ERROR: unknown struct: %s", ident.Name)
 				return true
 			}
 
@@ -62,14 +63,12 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			for _, e := range cl.Elts {
 				kv, ok := e.(*ast.KeyValueExpr)
 				if !ok {
-					// TODO: hide this behind a debug flag
-					pass.Reportf(e.Pos(), "ERROR: expected a key-value expr")
+					pass.ReportRangef(e, "ERROR: expected a key-value expr")
 					continue
 				}
 				id, ok := kv.Key.(*ast.Ident)
 				if !ok {
-					// TODO: hide this behind a debug flag
-					pass.Reportf(kv.Key.Pos(), "ERROR: expected kv.Key to be an identifier, got %s", reflect.TypeOf(kv.Key))
+					pass.ReportRangef(kv.Key, "ERROR: expected kv.Key to be an identifier, got %s", reflect.TypeOf(kv.Key))
 					continue
 				}
 
@@ -83,7 +82,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				}
 			}
 			if len(missingFields) > 0 {
-				pass.Reportf(cl.Type.Pos(), "%s is missing: %s", s.Name, strings.Join(missingFields, ", "))
+				pass.ReportRangef(cl.Type, "%s is missing: %s", s.Name, strings.Join(missingFields, ", "))
 			}
 
 			return true
@@ -94,7 +93,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 }
 
 type Struct struct {
-	Package        string
 	Name           string
 	RequiredFields []string
 }
@@ -114,11 +112,9 @@ func collectStructs(pass *analysis.Pass) map[string]Struct {
 				return true
 			}
 
-			// TODO: associate this struct with a package
 			fullName := ts.Name.String()
 			s := Struct{
-				Package: "todo",
-				Name:    ts.Name.String(),
+				Name: ts.Name.String(),
 			}
 
 			for _, field := range st.Fields.List {
@@ -127,8 +123,7 @@ func collectStructs(pass *analysis.Pass) map[string]Struct {
 				}
 
 				if tag, err := structtag.Parse(trimQuotes(field.Tag.Value)); err != nil {
-					// TODO: hide this behind a debug flag
-					pass.Reportf(field.Tag.Pos(), "unable to parse struct tag (%s): %+v", field.Tag.Value, err)
+					pass.ReportRangef(field.Tag, "unable to parse struct tag (%s): %+v", field.Tag.Value, err)
 					continue
 				} else if v, _ := tag.Get("require"); v != nil && v.Name == "true" {
 					s.RequiredFields = append(s.RequiredFields, field.Names[0].Name)

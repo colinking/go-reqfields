@@ -18,11 +18,12 @@ golangci-lint cache clean
 
 ## Future Work
 
-- [ ] Support validation on structs across 1st-party packages
-- [ ] Support validation on structs in 3rd-party packages
+- [ ] Support validation on structs across (1st+3rd party) packages
 - [ ] Support validation on inline structs
 - [ ] Support unnamed parameters
+- [ ] Add [formal analyzer-based tests](https://pkg.go.dev/golang.org/x/tools/go/analysis#hdr-Testing_an_Analyzer)
 
 ## Inspiration
 
+- [`go/analysis` docs](https://pkg.go.dev/golang.org/x/tools/go/analysis)
 - [Using go/analysis to write a custom linter](https://arslan.io/2019/06/13/using-go-analysis-to-write-a-custom-linter/)
