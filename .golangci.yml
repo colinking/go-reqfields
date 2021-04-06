@@ -1,10 +1,10 @@
 linters-settings:
   custom:
-    required:
+    reqfields:
       path: ./cmd/plugin/main.so
       description: Compile-time warnings for required fields.
       original-url: github.com/colinking/go-reqfields
 
 linters:
   enable:
-    - required
+    - reqfields

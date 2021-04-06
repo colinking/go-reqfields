@@ -18,4 +18,4 @@ func (*analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
 // Export for golangci-lint.
 //
 // See: https://golangci-lint.run/contributing/new-linters/#how-to-add-a-private-linter-to-golangci-lint
-var AnalyzerPlugin analyzerPlugin
+var AnalyzerPlugin analyzerPlugin //nolint:deadcode

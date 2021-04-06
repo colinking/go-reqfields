@@ -27,18 +27,34 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				return true
 			}
 
+			// Traverse the composite literal's type until we get to an identifier.
 			// TODO: map this type to a package name
-			snid, ok := cl.Type.(*ast.Ident)
-			if !ok {
-				// TODO: hide this behind a debug flag
-				pass.Reportf(cl.Type.Pos(), "expected cl.Type to be an identifier, got %s", reflect.TypeOf(cl.Type))
-				return true
+			var ident *ast.Ident
+			expr := cl.Type
+			for ident == nil {
+				switch next := expr.(type) {
+				case *ast.Ident:
+					ident = next
+				case *ast.SelectorExpr:
+					ident = next.Sel
+				case *ast.StarExpr:
+					expr = next.X
+				case *ast.ArrayType:
+					expr = next.Elt
+				case *ast.MapType, *ast.StructType:
+					// Skip untyped maps/structs.
+					return true
+				default:
+					// TODO: hide this behind a debug flag
+					pass.Reportf(cl.Type.Pos(), "ERROR: unexpected expression type, got %s", reflect.TypeOf(expr))
+					return true
+				}
 			}
 
-			s, ok := structs[snid.Name]
+			s, ok := structs[ident.Name]
 			if !ok {
 				// TODO: hide this behind a debug flag
-				pass.Reportf(cl.Type.Pos(), "unknown struct: %s", snid.Name)
+				pass.Reportf(cl.Type.Pos(), "ERROR: unknown struct: %s", ident.Name)
 				return true
 			}
 
@@ -47,13 +63,13 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				kv, ok := e.(*ast.KeyValueExpr)
 				if !ok {
 					// TODO: hide this behind a debug flag
-					pass.Reportf(e.Pos(), "expected a key-value expr")
+					pass.Reportf(e.Pos(), "ERROR: expected a key-value expr")
 					continue
 				}
 				id, ok := kv.Key.(*ast.Ident)
 				if !ok {
 					// TODO: hide this behind a debug flag
-					pass.Reportf(kv.Key.Pos(), "expected kv.Key to be an identifier, got %s", reflect.TypeOf(kv.Key))
+					pass.Reportf(kv.Key.Pos(), "ERROR: expected kv.Key to be an identifier, got %s", reflect.TypeOf(kv.Key))
 					continue
 				}
 
