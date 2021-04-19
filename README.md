@@ -35,7 +35,7 @@ linters-settings:
     reqfields:
       # Make sure to update this path to point at your local copy of `colinking/go-reqfields`:
       path: ./cmd/plugin/main.so
-      description: Compile-time warnings for required fields.
+      description: Checks for unset required struct fields.
       original-url: github.com/colinking/go-reqfields
 
 linters:

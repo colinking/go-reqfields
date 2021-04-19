@@ -1,4 +1,4 @@
-package main
+package ex1
 
 import "fmt"
 
@@ -7,7 +7,7 @@ type Hat struct {
 	OnHead bool
 }
 
-func main() {
+func run() {
 	// Required fields error when not set.
 	fmt.Printf("hat w/out style: %+v\n", Hat{})
 
@@ -28,4 +28,15 @@ func main() {
 
 	// Empty struct lists do not error.
 	fmt.Printf("today's hat w/ snazzy style: %+v\n", []Hat{})
+
+	// Non-empty struct lists error on invalid entries.
+	fmt.Printf("today's hat w/ snazzy style: %+v\n", []Hat{
+		Hat{
+			Style: "cap",
+		},
+		{
+			OnHead: true,
+		},
+		{},
+	})
 }

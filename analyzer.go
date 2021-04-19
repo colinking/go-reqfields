@@ -1,7 +1,6 @@
 package reqfields
 
 import (
-	"fmt"
 	"go/ast"
 	"reflect"
 	"strings"
@@ -12,94 +11,37 @@ import (
 
 var Analyzer = &analysis.Analyzer{
 	Name: "reqfields",
-	Doc:  "reports missing required struct fields",
-	Run:  run,
+	Doc:  Doc,
+	// Requires:   []*analysis.Analyzer{inspect.Analyzer},
+	Run:       runf,
+	FactTypes: []analysis.Fact{&Struct{}},
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
-	// Since we are doing two AST passes in the same run, we will only have
-	// access to information about the current package. To support reporting
-	// across other packages, we'll need to move this to a separate analyzer
-	// run and persist this data as object facts that we can query below.
-	structs := collectStructs(pass)
-	fmt.Printf("Found the following structs: %+v\n", structs)
+const Doc = `check for missing required struct fields
 
-	for _, file := range pass.Files {
-		ast.Inspect(file, func(n ast.Node) bool {
-			cl, ok := n.(*ast.CompositeLit)
-			if !ok {
-				return true
-			}
+By default, all struct fields are assumed to be optional. A field
+can be marked as required using a struct tag:
 
-			// Traverse the composite literal's type until we get to an identifier.
-			var ident *ast.Ident
-			expr := cl.Type
-			for ident == nil {
-				switch next := expr.(type) {
-				case *ast.Ident:
-					ident = next
-				case *ast.SelectorExpr:
-					ident = next.Sel
-				case *ast.StarExpr:
-					expr = next.X
-				case *ast.ArrayType:
-					expr = next.Elt
-				case *ast.MapType, *ast.StructType:
-					// Skip untyped maps/structs.
-					return true
-				default:
-					pass.ReportRangef(cl.Type, "ERROR: unexpected expression type, got %s", reflect.TypeOf(expr))
-					return true
-				}
-			}
-
-			s, ok := structs[ident.Name]
-			if !ok {
-				pass.ReportRangef(cl.Type, "ERROR: unknown struct: %s", ident.Name)
-				return true
-			}
-
-			foundFields := map[string]struct{}{}
-			for _, e := range cl.Elts {
-				kv, ok := e.(*ast.KeyValueExpr)
-				if !ok {
-					pass.ReportRangef(e, "ERROR: expected a key-value expr")
-					continue
-				}
-				id, ok := kv.Key.(*ast.Ident)
-				if !ok {
-					pass.ReportRangef(kv.Key, "ERROR: expected kv.Key to be an identifier, got %s", reflect.TypeOf(kv.Key))
-					continue
-				}
-
-				foundFields[id.Name] = struct{}{}
-			}
-
-			missingFields := []string{}
-			for _, requiredField := range s.RequiredFields {
-				if _, ok := foundFields[requiredField]; !ok {
-					missingFields = append(missingFields, requiredField)
-				}
-			}
-			if len(missingFields) > 0 {
-				pass.ReportRangef(cl.Type, "%s is missing: %s", s.Name, strings.Join(missingFields, ", "))
-			}
-
-			return true
-		})
+	type Hat struct {
+		Style string ` + "`" + `require:"true"` + "`" + `
 	}
+`
+
+// TODO: better name
+type Struct struct {
+	RequiredFields []string
+}
+
+func (this *Struct) AFact() {}
+
+func runf(pass *analysis.Pass) (interface{}, error) {
+	findStructs(pass)
+	checkStructs(pass)
 
 	return nil, nil
 }
 
-type Struct struct {
-	Name           string
-	RequiredFields []string
-}
-
-func collectStructs(pass *analysis.Pass) map[string]Struct {
-	structs := map[string]Struct{}
-
+func findStructs(pass *analysis.Pass) {
 	for _, file := range pass.Files {
 		ast.Inspect(file, func(n ast.Node) bool {
 			ts, ok := n.(*ast.TypeSpec)
@@ -112,11 +54,7 @@ func collectStructs(pass *analysis.Pass) map[string]Struct {
 				return true
 			}
 
-			fullName := ts.Name.String()
-			s := Struct{
-				Name: ts.Name.String(),
-			}
-
+			s := Struct{}
 			for _, field := range st.Fields.List {
 				if field.Tag == nil {
 					continue
@@ -130,13 +68,117 @@ func collectStructs(pass *analysis.Pass) map[string]Struct {
 				}
 			}
 
-			structs[fullName] = s
+			obj, ok := pass.TypesInfo.Defs[ts.Name]
+			if !ok {
+				pass.ReportRangef(ts, "unknown definition %s", ts.Name.String())
+				return true
+			}
+			if !pass.ImportObjectFact(obj, &s) {
+				pass.ExportObjectFact(obj, &s)
+			}
 
 			return true
 		})
 	}
+}
 
-	return structs
+func checkStructs(pass *analysis.Pass) {
+	for _, file := range pass.Files {
+		ast.Inspect(file, func(n ast.Node) bool {
+			cl, ok := n.(*ast.CompositeLit)
+			if !ok {
+				return true
+			}
+
+			checkStruct(pass, cl, nil)
+
+			return true
+		})
+	}
+}
+
+func identFromType(pass *analysis.Pass, cl *ast.CompositeLit, parentIdent *ast.Ident) *ast.Ident {
+	var ident *ast.Ident
+	expr := cl.Type
+	for ident == nil {
+		switch next := expr.(type) {
+		case *ast.Ident:
+			ident = next
+		case *ast.SelectorExpr:
+			ident = next.Sel
+		case *ast.StarExpr:
+			expr = next.X
+		case *ast.ArrayType:
+			expr = next.Elt
+		case *ast.MapType, *ast.StructType, *ast.InterfaceType:
+			// Skip untyped maps/structs.
+			return nil
+		case nil:
+			if parentIdent != nil {
+				return parentIdent
+			}
+			pass.ReportRangef(cl, "ERROR: got nil type")
+		default:
+			pass.ReportRangef(cl, "ERROR: unexpected expression type, got %s", reflect.TypeOf(expr))
+			return nil
+		}
+	}
+
+	return ident
+}
+
+func checkStruct(pass *analysis.Pass, cl *ast.CompositeLit, parentIdent *ast.Ident) {
+	ident := identFromType(pass, cl, parentIdent)
+	if ident == nil {
+		return
+	}
+
+	foundFields := map[string]struct{}{}
+	for _, e := range cl.Elts {
+		switch v := e.(type) {
+		case *ast.KeyValueExpr:
+			id, ok := v.Key.(*ast.Ident)
+			if !ok {
+				pass.ReportRangef(v.Key, "ERROR: expected kv.Key to be an identifier, got %s", reflect.TypeOf(v.Key))
+				continue
+			}
+
+			foundFields[id.Name] = struct{}{}
+		case *ast.CompositeLit:
+			// checkStruct(pass, v, ident)
+		// TODO: support unnamed struct parameters
+		case *ast.SelectorExpr, *ast.UnaryExpr, *ast.CallExpr, *ast.Ident:
+			continue
+		default:
+			pass.ReportRangef(e, "ERROR: expected a key-value expr, got %s", reflect.TypeOf(v))
+		}
+	}
+
+	obj, ok := pass.TypesInfo.Uses[ident]
+	if !ok {
+		pass.ReportRangef(cl, "ERROR: unknown identifier: %s", ident.Name)
+		return
+	}
+	// TODO: figure out how to filter out non-struct identifiers:
+	switch ident.Name {
+	case "uintptr", "string":
+		return
+	}
+	var s Struct
+	if !pass.ImportObjectFact(obj, &s) {
+		pass.ReportRangef(cl, "ERROR: no fact for: %s (type=%s)", ident.Name, obj.Type())
+		return
+	}
+
+	missingFields := []string{}
+	for _, requiredField := range s.RequiredFields {
+		if _, ok := foundFields[requiredField]; !ok {
+			missingFields = append(missingFields, requiredField)
+		}
+	}
+	if len(missingFields) > 0 {
+		pass.ReportRangef(cl, "%s is missing: %s", ident.Name, strings.Join(missingFields, ", "))
+	}
 }
 
 func trimQuotes(s string) string {
